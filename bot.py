@@ -1,17 +1,24 @@
-from telethon import TelegramClient, events
+import os
 import re
 import asyncio
+import threading
+from flask import Flask
+from telethon import TelegramClient, events
 
+# Telegram API credentials
 api_id = 22017572
 api_hash = '8f4fadf436adb0fc6365c3c68632b709'
 BOT_TOKEN = '7535489123:AAEFRpbkfoiIQ7p9mg0Ggf4jOD8HXjn3exY'
 
-source_chat_ids = [-1002682944548, -1001939510590]  # Multiple source groups
-destination_chat_ids = [-1002564741429, -1002565613612]  # Destination group IDs
+# Telegram chat IDs
+source_chat_ids = [-1002682944548, -1001939510590]
+destination_chat_ids = [-1002564741429, -1002565613612]
 
+# Clients
 user_client = TelegramClient('user_session', api_id, api_hash)
 bot_client = TelegramClient('bot_session', api_id, api_hash)
 
+# Regex patterns to detect card-like messages
 patterns = [
     re.compile(r'(\d{16})\|(\d{1,2})\|(\d{2,4})\|(\d{3,4})'),
     re.compile(r'(\d{16}) (\d{1,2}) (\d{2,4}) (\d{3,4})'),
@@ -51,11 +58,24 @@ async def handler(event):
     except Exception as e:
         print(f"❌ Handler error: {e}")
 
+# Web server for Render (keep service alive)
+app = Flask(__name__)
+
+@app.route('/')
+@app.route('/alive')
+def alive():
+    return '🤖 Bot is alive and running!', 200
+
+def run_web():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Main bot function
 async def main():
     try:
         await user_client.start()
         await bot_client.start(bot_token=BOT_TOKEN)
-        print("🤖 Bot is now running...")
+        print("🤖 Telegram bot started...")
         await user_client.run_until_disconnected()
     except Exception as e:
         print(f"❌ Main error: {e}")
@@ -63,4 +83,7 @@ async def main():
         await user_client.disconnect()
         await bot_client.disconnect()
 
-asyncio.run(main())
+# Run both web and bot
+if __name__ == '__main__':
+    threading.Thread(target=run_web).start()
+    asyncio.run(main())
